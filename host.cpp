@@ -136,6 +136,13 @@ void loop(t_client *head)
                 check_int_fatal(ret, "sendmail");
             }
             temp = head->next;
+            if (temp)
+            {
+                std::cout << "enter command: ";
+                bzero(buf, 400);
+                std::cin.getline(buf, 399);
+                comm = buf;
+            }
             while (temp)
             {
                 getsockopt(temp->socket, SOL_SOCKET, SO_ERROR, &ret, &check_len);
@@ -143,6 +150,7 @@ void loop(t_client *head)
                 if (ret == 54)
                 {
                     temp = lst_del_one(head, temp);
+                    std::cout << "here"  << std::endl;
                     continue ;
                 }
                 if ( FD_ISSET(temp->socket, &read_set))
@@ -152,6 +160,7 @@ void loop(t_client *head)
                     if (!ret)
                     {
                         temp = lst_del_one(head, temp);
+                        std::cout << "here2"  << std::endl;
                         continue ;
                     }
                     else
@@ -161,8 +170,6 @@ void loop(t_client *head)
                 }
                 if ( FD_ISSET(temp->socket, &write_set))
                 {
-                    std::cout << "enter command: ";
-                    std::cin >> comm;
                     ret = send(temp->socket, comm.c_str(), comm.length(), 0);
                     check_int_fatal(ret, "send");
                 }
