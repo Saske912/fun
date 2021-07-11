@@ -1,0 +1,28 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/Users/pfile/Desktop/tools/host.cpp
+iostream
+-
+sys/socket.h
+-
+cstdlib
+-
+unistd.h
+-
+cstdio
+-
+netdb.h
+-
+cstdlib
+-
+cstring
+-
+arpa/inet.h
+-
+
