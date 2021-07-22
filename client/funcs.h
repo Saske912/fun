@@ -36,7 +36,7 @@ void	pull_tainer_check_loop(int *k, t_parse **tmp, t_data *data);
 /*
 **get
 */
-void	get_standart(t_data *data, int sock);
+void	get_standart(t_data *data, int sock, int ip, int port);
 int		get_no_shell(char *str);
 int		get_own(char *str);
 int		get_env(char **str, t_counter *c, t_data *data);

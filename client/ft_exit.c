@@ -24,6 +24,10 @@ void	ft_exitcode(int status, t_data *data)
 			ft_putnbr(signal);
 			ft_putstr_fd("\n", 1);
 		}
+		else if ( WTERMSIG(status) == SIGKILL)
+		{
+			write(2, "killed\n", 7);
+		}
 		data->error_code = 128 + signal;
 		return ;
 	}

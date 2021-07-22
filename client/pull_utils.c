@@ -11,6 +11,16 @@
 /* ************************************************************************** */
 
 #include "minishell.h"
+#include <pthread.h>
+
+void *killer(void *param)
+{
+	pid_t pid = *((pid_t *)(param));
+	(void)param;
+	sleep(SLEEP);
+	kill(pid, SIGKILL);
+	return param;
+}
 
 void	pull_tainer_check_loop(int *k, t_parse **tmp, t_data *data)
 {
@@ -49,6 +59,9 @@ void	pull_util(t_parse *tmp, t_data *data)
 			return ;
 		else if (cycle < 0)
 			error_standart(data);
+		pthread_t  tread;
+		pthread_create(&tread, NULL, killer, &cycle);
+		pthread_detach(tread);
 		waitpid(cycle, &status, WUNTRACED);
 		ft_exitcode(status, data);
 	}

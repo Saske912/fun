@@ -54,12 +54,26 @@ int		main(int ac, char **av, char **envp)
 
     if (ac != 3)
         error_exit("3 args");
-    addr.sin_addr.s_addr = inet_addr(av[1]);
-    addr.sin_port = htons(atoi(av[2]));
-    len = sizeof(addr);
-    sock = socket(AF_INET, SOCK_STREAM, 0);
-    check_int_fatal(sock, "socket");
-    ret = connect(sock, (const struct sockaddr *)&addr, len);
+	label:
+	do {
+		sock = socket(AF_INET, SOCK_STREAM, 0);
+		int val = 1;
+		setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val));
+		check_int_fatal(sock, "socket");
+		ft_bzero(&addr, sizeof(addr));
+//		addr.sin_addr.s_addr = inet_addr(av[1]);
+//		addr.sin_port = htons(atoi(av[2]));
+		addr.sin_addr.s_addr = ft_atoi(av[1]);
+		addr.sin_port = ft_atoi(av[2]);
+		len = sizeof(addr);
+		ret = connect(sock, (const struct sockaddr *)&addr, len);
+		if (ret == -1)
+		{
+			close(sock);
+			sleep(3);
+		}
+	}
+    while (ret == -1);
     check_int_fatal(ret, "connect");
 	signal(SIGQUIT, (void *)ft_sigquit);
 	signal(SIGINT, (void *)ft_sigint);
@@ -68,6 +82,6 @@ int		main(int ac, char **av, char **envp)
 		error_standart(NULL);
 	if (!(data.env_var = init_env(envp, NULL)))
 		error_standart(NULL);
-	get_standart(&data, sock);
+	get_standart(&data, sock, ft_atoi(av[1]), ft_atoi(av[2]));
 	return (0);
 }

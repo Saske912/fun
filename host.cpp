@@ -7,6 +7,10 @@
 #include <cstdlib>
 #include <cstring>
 #include <arpa/inet.h>
+#include <fcntl.h>
+#include <pthread.h>
+
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 int     host = 0;
 
@@ -89,9 +93,37 @@ int sendmail(const char *to, const char *from, const char *subject, const char *
     return retval;
 }
 
+typedef struct s_data
+{
+	t_client 	*head;
+	std::string *command;
+	char 		buf[4000];
+}				t_data;
+
+void *func(void *param)
+{
+	t_data *data = (t_data *)param;
+
+	while (1)
+	{
+//		std::cout << "data resp: " << data->response <<  std::endl;
+		if ( data->head->next)
+		{
+			pthread_mutex_lock(&mutex);
+			bzero(data->buf, 4000);
+			std::cout << "enter command: ";
+			std::cin.getline(data->buf, 3999);
+			*(data->command) = data->buf;
+		}
+//		if (data->command->length())
+//			pthread_mutex_lock(&mutex);
+//		sleep(3);
+	}
+}
+
 void loop(t_client *head)
 {
-    std::string comm;
+	t_data data;
     fd_set read_set;
     fd_set write_set;
     t_client *temp;
@@ -102,28 +134,41 @@ void loop(t_client *head)
     bzero(&cli, sizeof(sockaddr_in));
     socklen_t len = sizeof(sockaddr);
     socklen_t check_len = sizeof(ret);
-    char buf[400];
-
+    char buf[4000];
+    pthread_t tread;
+    data.head = head;
+    data.command = new (std::string);
+    ret = pthread_create(&tread, NULL, func, &data);
+	check_int_fatal(ret, "thread");
+	pthread_detach(tread);
     tv.tv_sec = 3;
     tv.tv_usec = 0;
+	pthread_mutex_unlock(&mutex);
     while (21)
     {
         FD_ZERO(&read_set);
-        FD_ZERO(&write_set);
+		FD_ZERO(&write_set);
         temp = head;
         while (temp)
         {
             FD_SET(temp->socket, &read_set);
             if (temp->socket > max_fd)
                 max_fd = temp->socket;
-            if (head->socket != temp->socket)
-                FD_SET(temp->socket, &write_set);
+            if (data.command->length())
+				FD_SET(temp->socket, &write_set);
             temp = temp->next;
         }
         ret = select(max_fd + 1, &read_set, &write_set, NULL, &tv);
         check_int_fatal(ret, "select");
         if (!ret)
-            continue ;
+		{
+//        	if (head->next)
+//			{
+//			std::cout << "select 0"  << std::endl;
+//				pthread_mutex_unlock(&mutex);
+//			}
+			continue ;
+		}
         else
         {
             if ( FD_ISSET(head->socket, &read_set))
@@ -132,47 +177,57 @@ void loop(t_client *head)
                 check_int_fatal(ret, "accept");
                 lst_add_back(head, new_lst(ret));
                 errno = 0;
+//				ret = send(ret, "who\n", 4, 0);
+//				check_int_fatal(ret, "send who");
                 ret = sendmail("predisoin@gmail.com", "pfile@studend.21-school.ru", "new client", "do this!");
                 check_int_fatal(ret, "sendmail");
             }
             temp = head->next;
-            if (temp)
-            {
-                std::cout << "enter command: ";
-                bzero(buf, 400);
-                std::cin.getline(buf, 399);
-                comm = buf;
-            }
             while (temp)
             {
                 getsockopt(temp->socket, SOL_SOCKET, SO_ERROR, &ret, &check_len);
-                std::cout << "ret: " << ret  << std::endl;
                 if (ret == 54)
                 {
                     temp = lst_del_one(head, temp);
-                    std::cout << "here"  << std::endl;
                     continue ;
                 }
-                if ( FD_ISSET(temp->socket, &read_set))
+                if ( data.command->length())
                 {
-                    bzero(buf, 400);
-                    ret = recv(temp->socket, buf, 399, 0);
-                    if (!ret)
-                    {
-                        temp = lst_del_one(head, temp);
-                        std::cout << "here2"  << std::endl;
-                        continue ;
-                    }
-                    else
-                    {
-                        std::cout << "message from client: " << buf << std::endl;
-                    }
-                }
-                if ( FD_ISSET(temp->socket, &write_set))
-                {
-                    ret = send(temp->socket, comm.c_str(), comm.length(), 0);
+                    ret = send(temp->socket, data.command->c_str(), data.command->length(), 0);
                     check_int_fatal(ret, "send");
+					if (temp->next == NULL)
+					{
+						data.command->clear();
+						std::cout << "command cleared! data sended: " << ret  << std::endl;
+					}
                 }
+				if ( FD_ISSET(temp->socket, &read_set))
+				{
+					bzero(buf, 4000);
+					ret = recv(temp->socket, buf, 3999, 0);
+					if (!ret)
+					{
+						temp = lst_del_one(head, temp);
+						if (temp == NULL)
+						{
+							pthread_mutex_unlock(&mutex);
+						}
+						continue ;
+					}
+					else
+					{
+						if ( !strcmp(buf, "\n"))
+						{
+							continue;
+						}
+						else
+							std::cout << "message from client: " << buf << std::endl;
+						if (temp->next == NULL)
+						{
+							pthread_mutex_unlock(&mutex);
+						}
+					}
+				}
                 temp = temp->next;
             }
         }
@@ -186,14 +241,15 @@ int main(int ac, char **av)
     socklen_t len;
     t_client head;
     int val = 1;
-
     if (ac != 3)
-        error_exit("3 args");
+        error_exit("2 args");
     addr.sin_addr.s_addr = inet_addr(av[1]);
     addr.sin_port = htons(atoi(av[2]));
+	printf("ip: %d\nport: %d\n", addr.sin_addr.s_addr, addr.sin_port);
     len = sizeof(addr);
     host = socket(AF_INET, SOCK_STREAM, 0);
     setsockopt(host, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val));
+	fcntl(host, F_SETFL, O_NONBLOCK);
     check_int_fatal(host, "socket");
     ret = bind(host, (const sockaddr *)&addr, len);
     check_int_fatal(ret, "bind");
